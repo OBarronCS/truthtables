@@ -1,0 +1,40 @@
+{
+    "compilerOptions": {
+        "baseUrl":"./",
+
+        "target": "ES2020",
+        "lib": ["DOM","ESNext"],
+
+    // "extendedDiagnostics": true,
+        //"module": "ES2020", //allows for dynamic imports, import.meta
+
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        
+        // Look into setting sourceMap = true for better debugging
+
+        "types": [
+            "webpack",
+            "webpack-env"
+        ],
+
+        "experimentalDecorators":true,
+        
+        //"noImplicitAny" : true,
+        "strictFunctionTypes": true,
+        "alwaysStrict":true,
+        "noImplicitThis":true,
+        "noImplicitReturns": true,
+        "noImplicitOverride": true,
+        "noFallthroughCasesInSwitch": true,
+        "strictBindCallApply":true,
+        
+
+        // forceConsistentCasingInFileNames: true,
+        
+    },
+    "exclude": [
+        "node_modules",
+        "**/node_modules/",
+    ],    
+}
