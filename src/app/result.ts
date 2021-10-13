@@ -2,12 +2,12 @@
 
 export type CheckedResult<T, E> = IValidResult<T> | IErrorResult<E>;
 
-interface IValidResult<T> {
+export interface IValidResult<T> {
     success: true,
     value: T
 }
 
-interface IErrorResult<E> {
+export interface IErrorResult<E> {
     success: false,
     error: E
 }

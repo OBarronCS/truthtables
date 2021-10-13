@@ -1,4 +1,4 @@
-import { CheckedResult, ErrorResult, ValidResult } from "./result";
+import { CheckedResult, ErrorResult, IErrorResult, ValidResult } from "./result";
 
 const editor = document.getElementById("editor") as HTMLTextAreaElement;
 
@@ -15,7 +15,9 @@ enum TokenType {
     CONDITIONAL,
     BICONDITIONAL,
     START_PAREN,
-    END_PAREN
+    END_PAREN,
+    END_OF_FILE
+    // END_OF_LINE?
 }
 
 class Token {
@@ -35,8 +37,11 @@ editor.addEventListener("keyup",e => {
     // Two steps: first turn into a format we can understand, then evaluate it
     const text = editor.value;
     
+    // console.log([...text].map(e => e.charCodeAt(0)))
 
-
+    // for(const char of text){
+    //     console.log(char.charCodeAt(0))
+    // }
 
     const scanner = new Scanner(text);
 
@@ -44,7 +49,9 @@ editor.addEventListener("keyup",e => {
 
     const t = document.getElementById("test");
 
+
     switch(result.success){
+        // Lexer has no errors
         case true: {
             t.innerHTML = result.value.map(t => t.map(e => e.toString()) + "\n").toString()
 
@@ -52,12 +59,20 @@ editor.addEventListener("keyup",e => {
 
             const p = new TokenParser(lines[0]);
 
-            const program = p.parse();
+
+            let program_result = p.parse();
+
+            if(program_result.success === false) {
+                console.log("Token parsing error")
+                console.log(program_result.error);
+                break;
+            }
+
+            const program = program_result.value;
+
         
             console.log("PROGRAM START")
-
             const truth_table = program.run_program();
-
             console.log("PROGRAM DONE")
 
             const html_t = document.getElementById("truth");
@@ -65,7 +80,7 @@ editor.addEventListener("keyup",e => {
 
             const thr = document.createElement('tr');
             for (let i = 0; i < truth_table.variables.length; i++) {
-                console.log("Var " + i)
+                // console.log("Var " + i)
                 const header = document.createElement('th');
                 header.style.border = "1px solid black"
                 header.textContent = truth_table.variables[i];
@@ -73,21 +88,13 @@ editor.addEventListener("keyup",e => {
                 thr.appendChild(header);
             }
 
-            // Final thing
-            const header = document.createElement('th');
-            header.style.border = "1px solid black"
-            header.textContent = text;
-            thr.appendChild(header);
-
-
-
             html_t.appendChild(thr);
 
             for(const element of truth_table.truth_value){
                 const total = element[0];
                 const indivual = element[1];
 
-                console.log(indivual)
+                // console.log(indivual)
 
                 const thr = document.createElement('tr');
                 
@@ -97,10 +104,6 @@ editor.addEventListener("keyup",e => {
 
                     thr.appendChild(slot);
                 }
-
-                const header = document.createElement('th');
-                header.textContent = total ? "T" : "F";
-                thr.appendChild(header);
 
                 
                 html_t.appendChild(thr);
@@ -194,26 +197,31 @@ class Scanner {
 
             switch(char){
                 case " ": break;
-
                 case "!": this.addToken(TokenType.NOT); break;
                 case "(": this.addToken(TokenType.START_PAREN); break;
                 case ")": this.addToken(TokenType.END_PAREN); break;
                 case "-": {
                     if(this.ifNextIs(">")){
-                        this.addToken(TokenType.CONDITIONAL); break;
+                        this.addToken(TokenType.CONDITIONAL);
                     } else {
                         this.addError("Expecting > after -")
                     }
                     break;
                 }
-                case "\n": {
-                    this.newLine();
-                    break;
-                }
                 case "=": {
                     if(this.ifNextIs(">")){
-                        this.addToken(TokenType.CONDITIONAL); break;
+                        this.addToken(TokenType.CONDITIONAL); 
+                    } else {
+                        this.addError("Expecting > after =")
                     }
+                    break;
+                }
+                case "\r":{
+                    // Ignore a carriage return. Should always be followed by a \n. If not, doesn't matter.
+                    break;
+                }
+                case "\n": {
+                    this.newLine();
                     break;
                 }
                 case "<": {
@@ -225,28 +233,37 @@ class Scanner {
                     }
                     break;
                 }
-                case "A": {
-                    if(this.text[this.current] === "N" && this.text[this.current + 1] === "D"){
-                        this.addToken(TokenType.AND)
-                        this.current += 2;
-                    }
-                    break;
-                }
-
-                case "O": {
-                    if(this.text[this.current] === "R"){
-                        this.addToken(TokenType.OR)
-                        this.current += 1;
-                    }
-                    break;
-                }
-
                 default: {
-                    // is valid variable name
-                    if(/[a-z]/.test(char)) {
+
+                    if(/[a-zA-Z]/.test(char)) {
+                        let str = char;
+                        
+                        //Keep parsing will valid identifier
+                        while(this.hasMore() && /[a-zA-Z]/.test(this.peek())) { 
+                            str += this.peek();
+                            this.advance();
+                        }
+
+                        // If its a propositional variable
+                        if(str.length === 1 && /[a-z]/.test(str)){
+                            this.addToken(TokenType.VARIABLE, char);
+                            break;
+                        } else {
+                            if(str == "OR"){
+                                this.addToken(TokenType.OR);
+                            } else if (str === "AND") {
+                                this.addToken(TokenType.AND);
+                            } else {
+                                this.addError("Unknown identifier '" + str + "'");
+                            }
+                        } 
+
+                    } else if(/[a-z]/.test(char)) {
+                        // is valid variable name
+
                         // If thats it!
                         if(!this.hasMore() || (this.peek() === " " || this.peek() === ")" || this.peek() === "\n")){
-                            this.addToken(TokenType.VARIABLE, char);
+                            
                         } else {
                             this.addError("Variables can only be one character long: " + char);
                         }
@@ -258,6 +275,8 @@ class Scanner {
                 }
             }
         }
+
+        this.addToken(TokenType.END_OF_FILE);
 
         if(this.hasError) return ErrorResult(this.errors);
 
@@ -282,7 +301,7 @@ interface VariableExpr extends Expression {
 
 interface NegationExpr extends Expression {
     type: "negation",
-    negate: ExpressionType
+    toNegate: ExpressionType
 }
 
 interface ComparisonExpr extends Expression {
@@ -300,15 +319,17 @@ interface GroupExpr extends Expression {
 type ExpressionType = VariableExpr | NegationExpr | ComparisonExpr | GroupExpr;
 
 
+type ParseError = {
+    str: string;
+}
 
-
-
+// Turns tokens into tree structure
 class TokenParser {
     public current: number;
     public end: number;
 
     private hasError = false;
-    private errors: string[][] = [[]];
+    private errors: ParseError[] = [];
     private tokens: Token[] = [];
 
     public hasMore(){
@@ -331,9 +352,14 @@ class TokenParser {
             }
         }
 
-        
-
         return false;
+    }
+
+    addError(err: ParseError): IErrorResult<ParseError> {
+        this.hasError = true;
+        this.errors.push(err);
+
+        return ErrorResult(err);
     }
 
     peek(): Token {
@@ -348,25 +374,6 @@ class TokenParser {
         return this.tokens[this.current - 1];
     }
 
-
-    // parses and expression given a left hand guy
-    parseExpression(): ExpressionType {
-        let left = this.parseProp();
-
-        while(this.ifNextIs(TokenType.AND, TokenType.OR, TokenType.CONDITIONAL, TokenType.BICONDITIONAL)){
-            const operator = this.previous();
-            const right = this.parseProp();
-            
-            left = {
-                type:"comparison",
-                comparison:operator,
-                left:left,
-                right:right,
-            }
-        }
-
-        return left;
-    }
 
     private varIDS = new Map<string,number>();
     private nextVarID = 0;
@@ -384,45 +391,125 @@ class TokenParser {
         return v;
     }
 
-    private parseProp(): ExpressionType {
+    parse(): CheckedResult<ProgramInfo, string[]> {
+        const expr = this.parseExpression();
+
+        switch(expr.success){
+            case true: {
+                const p = new ProgramInfo(expr.value,this.idToString);
+                
+                return ValidResult(p);
+            }
+            case false: {
+                return ErrorResult(this.errors.map(e => e.str));
+            }
+        }
+    }
+
+    /** Error handling
+     *      Only LOG an error if not propagating it
+     *     
+     *  If you encounter an error, can either return an error or try to fix the stream by skipping forward
+     *      
+     */
+    private parseExpression(): CheckedResult<ExpressionType, ParseError> {
+        const parseLeft = this.parseProp();
+
+        switch(parseLeft.success){
+            case true: {
+                let left = parseLeft.value;
+
+
+                while(this.ifNextIs(TokenType.AND, TokenType.OR, TokenType.CONDITIONAL, TokenType.BICONDITIONAL)){
+                    const operator = this.previous();
+                    const right = this.parseProp();
+
+                    switch(right.success){
+                        case true: {
+                            left = {
+                                type:"comparison",
+                                comparison:operator,
+                                left:left,
+                                right:right.value,
+                            }
+                            break;
+                        }
+                        case false: {
+                            return this.addError(right.error);
+                        }
+                    }
+                }
+
+                return ValidResult(left);
+            }
+            case false: {
+                return ErrorResult(parseLeft.error);
+            }
+        }
+
+
+    }
+
+    
+    private parseProp(): CheckedResult<ExpressionType, ParseError> {
 
         if(this.ifNextIs(TokenType.NOT)){
-            return {
-                type:"negation",
-                negate: this.parseProp()
+
+            const toNegate = this.parseProp();
+
+            switch(toNegate.success){
+                case true: {
+                    return ValidResult({
+                        type:"negation",
+                        toNegate:toNegate.value
+                    });
+                }
+                case false: return this.addError(toNegate.error);
             }
         }
 
         if (this.ifNextIs(TokenType.VARIABLE)) {
-            return {
+            return ValidResult({
                 type:"variable",
                 name: this.previous().word,
                 uniqueID: this.makeVariableID(this.previous().word)
-            }
+            });
         }
 
         if(this.ifNextIs(TokenType.START_PAREN)){
             const expr_in_group = this.parseExpression();
-        
-            if(this.ifNextIs(TokenType.END_PAREN)){
 
-                return {
-                    type:"group",
-                    expr: expr_in_group
+            switch(expr_in_group.success){
+                case true: {
+                    if(this.ifNextIs(TokenType.END_PAREN)){
+
+                        return ValidResult({
+                            type:"group",
+                            expr: expr_in_group.value
+                        });
+                    } else {
+                        return this.addError({
+                            str:"Must close parenthesis"
+                        })
+                    }
                 }
-            } else {
-                throw new Error("NEED")
+                case false: {
+                    return this.addError(expr_in_group.error);
+                }
             }
         }
 
-        throw new Error("idk dawg")
+        // There is no token here, even though we are expecting one
+
+        if(this.ifNextIs(TokenType.END_OF_FILE)){
+            return this.addError({ str: "Expecting token but reached end of file" });
+        }
+        
+        return this.addError({ str:"Unexpected end of expression" });
+
     }
 
-    parse(): ProgramInfo {
-        const expr = this.parseExpression();
-        const p = new ProgramInfo(expr,this.idToString)
-        return p;
-    }
+    
 }
 
 class ProgramInfo {
@@ -448,38 +535,49 @@ class ProgramInfo {
 
 
     // Returns the value of the proposition at this truth value
-    private EvaluateProposition(expr: ExpressionType): boolean {
+    private EvaluateProposition(expr: ExpressionType, subp_values: boolean[]): boolean {
+
+        //subp_values is used to keep track of the truth values of all compound propositions
+
 
         switch(expr.type){
             case "group": {
-                return this.EvaluateProposition(expr.expr);
+                return this.EvaluateProposition(expr.expr, subp_values);
             }
             case "comparison": {
-                const left = this.EvaluateProposition(expr.left);
-                const right = this.EvaluateProposition(expr.right);
+                const left = this.EvaluateProposition(expr.left, subp_values);
+                const right = this.EvaluateProposition(expr.right, subp_values);
     
+                let result: boolean;
+
                 switch(expr.comparison.type){
                     case TokenType.AND: {
-                        return left && right;
+                        result = left && right;
+                        break;
                     }
                     case TokenType.OR: {
-                        return left || right;
+                        result = left || right;
+                        break;
                     }
                     case TokenType.CONDITIONAL: {
-                        return (!left || right)
+                        result = (!left || right);
+                        break;
                     }
                     case TokenType.BICONDITIONAL: {
-                        return (!left || right) && (!right || left)
+                        result = (!left || right) && (!right || left);
+                        break;
                     }
-
                     default: {
-                        throw new Error("How" + expr.comparison.toString())
+                        throw new Error("How?? " + expr.comparison.toString())
                     }
-                    
                 }
+                subp_values.push(result);
+                return result;
             }
             case "negation": {
-                return !this.EvaluateProposition(expr);
+                const negation = !this.EvaluateProposition(expr.toNegate, subp_values);
+                subp_values.push(negation)
+                return negation;
             }
             case "variable": {
                 return this.varValue(expr.uniqueID);
@@ -505,19 +603,88 @@ class ProgramInfo {
         return true;
     }
 
-    run_program(){
+    private allPropositionStrings(): string[] {
+        const p = [...this.idToString];
 
-        console.log("Number of variables:" + this.variables.length)
+        // Traverse the tree and add to list in order to encountering.
+
+        this.traverseTreeForNames(this.tree, p);
+
+        return p;
+    }
+
+    private traverseTreeForNames(expr: ExpressionType, names: string[]): string {
+
+        switch(expr.type){
+            case "group": {
+                const result = "(" + this.traverseTreeForNames(expr.expr, names) + ")";
+                // names.push(result);
+                return result;
+            }
+            case "comparison": {
+                const left = this.traverseTreeForNames(expr.left, names);
+                const right = this.traverseTreeForNames(expr.right, names);
+    
+                let result: string;
+
+                switch(expr.comparison.type){
+                    case TokenType.AND: {
+                        result = left + " ∧ " + right;
+                        break;
+                    }
+                    case TokenType.OR: {
+                        result = left + " ∨ " + right;
+                        break;
+                    }
+                    case TokenType.CONDITIONAL: {
+                        result = left + " ⇒ " + right;
+                        break;
+                    }
+                    case TokenType.BICONDITIONAL: {
+                        result = left + " ⇔ " + right;
+                        break;
+                    }
+                    default: {
+                        throw new Error("How?? " + expr.comparison.toString())
+                    }
+                }
+
+                names.push(result);
+                return result;
+            }
+            case "negation": {
+                const negation = this.traverseTreeForNames(expr.toNegate, names);
+                names.push("¬" + negation);
+                return "¬" + negation;
+            }
+            case "variable": {
+                return expr.name;
+            }
+        }
+    }
+
+
+    run_program(): {
+        // Formated strings of the propositions names. Indices line up with those in the truthvalue second value.
+        variables: string[];
+        // Tuple of values for each unique set of proposition values. 1 value is value of final expression. Other is of the individual expressions
+        truth_value: [boolean, boolean[]][];
+    }{
+
+        console.log("Number of variables:" + this.variables.length);
 
         const truth_value: [boolean, boolean[]][] = [];
 
         do {
-            const truth_row = this.EvaluateProposition(this.tree);
-            truth_value.push([truth_row, [...this.variables]]);
+            const subvalues: boolean[] = [];
+            const truth_row = this.EvaluateProposition(this.tree, subvalues);
+            truth_value.push([truth_row, [...this.variables, ...subvalues]]);
         } while(this.permuteVars());
 
+        console.log("All names: " + this.allPropositionStrings())
+
         return {
-            variables: this.idToString,
+            variables: this.allPropositionStrings(),
             truth_value: truth_value
         }
 
