@@ -4,16 +4,34 @@
     <meta charset="UTF-8">
     <title>Document</title>
 </head>
-<body>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;">
+    <div>
+        NOT: ¬ == !
+        Conjuction: ∧ == AND
+        Disjuntion: ∨ === OR
+        Condition:  ⇒  === ->
+        Bicondition:  ⇔  === ->
+
+        Use parenthesis to clear up confusion
+
+        Order of precedence:
+            !    AND    OR    =>    <=>
+
+        All propositional variables must be lowercase, single characters in the english alphabet
+    </div>
     <div style="text-align: center">
         <textarea id="editor" name="editor" rows="14" cols="52"></textarea>
 
 
-        <table id="truth" style="border:1px solid black; border-collapse: collapse;">
+        <table id="truth" style="border:1px solid black; border-collapse: collapse; margin-left: auto; margin-right: auto;">
 
         <table>
 
         <div id="test" style="white-space:pre-wrap"></div>
+
+        <!-- <svg viewBox="0 0 100 100">
+            <rect x="10" y="23" width="20" height="20"/>
+        </svg> -->
     </div>
 </body>
 </html>
