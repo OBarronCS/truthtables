@@ -16,8 +16,8 @@ enum TokenType {
     BICONDITIONAL,
     START_PAREN,
     END_PAREN,
-    END_OF_FILE
-    // END_OF_LINE?
+    END_OF_FILE,
+    NEW_LINE
 }
 
 class Token {
@@ -26,7 +26,7 @@ class Token {
 
     toString(): string {
         if(this.word === "") return TokenType[this.type];
-        return TokenType[this.type] + " " + this.word;
+        return `${TokenType[this.type]}(${this.word})`;
     }
 }
 
@@ -35,29 +35,29 @@ class Token {
 
 editor.addEventListener("keyup",e => {
     // Two steps: first turn into a format we can understand, then evaluate it
+    console.log("********************");
     const text = editor.value;
     
     // console.log([...text].map(e => e.charCodeAt(0)))
-
-    // for(const char of text){
-    //     console.log(char.charCodeAt(0))
-    // }
 
     const scanner = new Scanner(text);
 
     const result = scanner.parseAllTokens();
 
-    const t = document.getElementById("test");
+    const t = document.getElementById("errors");
 
 
     switch(result.success){
         // Lexer has no errors
         case true: {
-            t.innerHTML = result.value.map(t => t.map(e => e.toString()) + "\n").toString()
+            // Array of lists of tokens
+            const tokens = result.value;
 
-            const lines = result.value;
+            t.innerHTML = tokens.map(t => t.toString()).toString()
 
-            const p = new TokenParser(lines[0]);
+            
+
+            const p = new TokenParser(tokens);
 
 
             let program_result = p.parse();
@@ -69,13 +69,16 @@ editor.addEventListener("keyup",e => {
             }
 
             const program = program_result.value;
+            
 
-        
-            console.log("PROGRAM START")
+            console.log(program.trees);
+
+
+            // Evaluate the expressions
             const truth_table = program.run_program();
-            console.log("PROGRAM DONE")
 
-            const html_t = document.getElementById("truth");
+            // Display the truth table
+            const html_t = document.getElementById("truth") as HTMLTableElement;
             html_t.innerHTML = ""
 
             const thr = document.createElement('tr');
@@ -90,19 +93,11 @@ editor.addEventListener("keyup",e => {
 
             html_t.appendChild(thr);
 
-            for(const element of truth_table.truth_value){
-                const total = element[0];
-                const indivual = element[1];
+            for(const permutation of truth_table.truth_value){
 
-                console.log("Length:" + indivual.length)
-
-                // console.log(indivual)
-
-                // Row
                 const thr = document.createElement('tr');
                 
-                for(const t of indivual){
-                    console.log(t)
+                for(const t of permutation){
                     const slot = document.createElement('td');
                     slot.style.borderLeft = "1px solid black"
                     slot.style.borderRight = "1px solid black"
@@ -111,20 +106,13 @@ editor.addEventListener("keyup",e => {
                     thr.appendChild(slot);
                 }
 
-                
                 html_t.appendChild(thr);
             }
-            
-
-
-            console.log("TREE: " + JSON.stringify(program.tree))
-
-            // Create a tree with the data
 
             break;
         }
         case false: {
-            t.innerHTML = result.error.map(t => t + "\n").toString()
+            t.innerHTML = "Lexer error: " + result.error.map(t => t + "\n").toString()
         }
     }
 
@@ -134,7 +122,7 @@ editor.addEventListener("keyup",e => {
 });
 
 
-
+// Turns raw text into flat stream of tokens
 class Scanner {
     
     public text: string;
@@ -144,8 +132,8 @@ class Scanner {
     public line = 0;
 
     private hasError = false;
-    private errors: string[][] = [[]];
-    private tokens: Token[][] = [[]];
+    private errors: string[] = [];
+    private tokens: Token[] = [];
 
     public hasMore(){
         return this.current !== this.end;
@@ -159,16 +147,14 @@ class Scanner {
     
     newLine(){
         this.line++;
-        this.tokens.push([]);
-        this.errors.push([]);
     }
 
     addToken(t: TokenType, name: string = ""){
-        this.tokens[this.line].push(new Token(t,name));
+        this.tokens.push(new Token(t,name));
     }
 
     addError(str: string){
-        this.errors[this.line].push(str);
+        this.errors.push(str);
         this.hasError = true;
     }
 
@@ -195,7 +181,7 @@ class Scanner {
 
    
 
-    parseAllTokens(): CheckedResult<Token[][],string[][]> {
+    parseAllTokens(): CheckedResult<Token[],string[]> {
 
         while(this.hasMore()){
 
@@ -223,10 +209,11 @@ class Scanner {
                     break;
                 }
                 case "\r":{
-                    // Ignore a carriage return. Should always be followed by a \n. If not, doesn't matter.
+                    // Ignore a carriage return. Should always be followed by a \n. 
                     break;
                 }
                 case "\n": {
+                    this.addToken(TokenType.NEW_LINE);
                     this.newLine();
                     break;
                 }
@@ -341,14 +328,26 @@ class TokenParser {
     private errors: ParseError[] = [];
     private tokens: Token[] = [];
 
-    public hasMore(){
-        return this.current !== this.end;
-    }
-
     constructor(tokens: Token[]){
         this.tokens = tokens;
         this.current = 0;
         this.end = tokens.length;
+    }
+
+    hasMore(): boolean {
+        return this.current !== this.end && this.peek().type !== TokenType.END_OF_FILE; //
+    }
+
+    peek(): Token {
+        return this.tokens[this.current];
+    }
+
+    advance(): Token {
+        return this.tokens[this.current++];
+    }
+
+    previous(){
+        return this.tokens[this.current - 1];
     }
 
     ifNextIs(...t: TokenType[]): boolean {
@@ -374,17 +373,7 @@ class TokenParser {
         return err;
     }
 
-    peek(): Token {
-        return this.tokens[this.current];
-    }
-
-    advance(): Token {
-        return this.tokens[this.current++];
-    }
-
-    previous(){
-        return this.tokens[this.current - 1];
-    }
+    
 
 
     private varIDS = new Map<string,number>();
@@ -404,14 +393,40 @@ class TokenParser {
     }
 
     parse(): CheckedResult<ProgramInfo, string[]> {
-        try {
-            const expr = this.parseLogic();
-            
-            const p = new ProgramInfo(expr,this.idToString);
+        const propositions: ExpressionType[] = [];
+
+        while(this.hasMore()){
+            try {
+                const expr = this.parseLogic();
+                
+                propositions.push(expr);
+
+                while(this.ifNextIs(TokenType.NEW_LINE)){
+                    // Consumes new lines
+                }
         
+                if(this.ifNextIs(TokenType.END_OF_FILE)){
+                    break;
+                }
+
+            } catch {
+                this.sync();
+            }
+        }
+
+        if(!this.hasError){
+            const p = new ProgramInfo(propositions,this.idToString);
             return ValidResult(p);
-        } catch {
+        } else {
             return ErrorResult(this.errors.map(e => e.message));
+        }
+    }
+
+    private sync(){
+        while(this.hasMore()){
+            if(this.advance().type === TokenType.NEW_LINE){
+                return;
+            }
         }
     }
     
@@ -426,6 +441,7 @@ class TokenParser {
      */
 
     private parseLogic(): ExpressionType {
+
         const left = this.parseBICONDITIONAL();
         return left;
     }
@@ -557,11 +573,17 @@ class TokenParser {
         }
 
         // There is no token here, but we are expecting one
+        // Peek so we don't consume it
+        if(this.peek().type === TokenType.NEW_LINE){
+            throw this.addError("Expecting token but reached end of line");
+        }
+
 
         if(this.ifNextIs(TokenType.END_OF_FILE)){
             throw this.addError("Expecting token but reached end of file");
         }
-        
+
+    
         throw this.addError("Unexpected end of expression");
     }
 
@@ -569,7 +591,7 @@ class TokenParser {
 }
 
 class ProgramInfo {
-    tree: ExpressionType;
+    trees: ExpressionType[];
     
     // Index is id, element is current value
     variables: boolean[] = [];
@@ -577,11 +599,13 @@ class ProgramInfo {
     // Index is id, element is string repr
     private idToString: string[] = [];
 
-    constructor(tree: ExpressionType, idToString: string[]){
-        this.tree = tree;
+    constructor(trees: ExpressionType[], idToString: string[]){
+        this.trees = trees;
 
         this.idToString = idToString;
         
+        console.log("Propositional variables: " + this.idToString.toString())
+
         this.variables = this.idToString.map(t => true);
     }
     
@@ -672,7 +696,6 @@ class ProgramInfo {
                         throw new Error("How?? " + expr.comparison.toString())
                     }
                 };
-                console.log("R "+ result)
                 subp_values.push(result);
                 return result;
             }
@@ -710,8 +733,10 @@ class ProgramInfo {
         const p = [...this.idToString];
 
         // Traverse the tree and add to list in order to encountering.
-
-        this.traverseTreeForNames(this.tree, p);
+        for(const line of this.trees){
+            this.traverseTreeForNames(line, p);
+        }
+        
 
         return p;
     }
@@ -790,23 +815,32 @@ class ProgramInfo {
         }
     }
 
-
     run_program(): {
         // Formated strings of the propositions names. Indices line up with those in the truthvalue second value.
         variables: string[];
         // Tuple of values for each unique set of proposition values. 1 value is value of final expression. Other is of the individual expressions
-        truth_value: [boolean, boolean[]][];
+        truth_value: boolean[][];
     }{
 
         console.log("Number of variables:" + this.variables.length);
 
-        const truth_value: [boolean, boolean[]][] = [];
+        // []
+        const truth_value: boolean[][] = [];
 
         do {
+            // For each permutation of variable values, run each expression
             const subvalues: boolean[] = [];
-            const truth_row = this.EvaluateProposition(this.tree, subvalues);
+            for(const line of this.trees){
 
-            truth_value.push([truth_row, [...this.variables, ...subvalues]]);
+                const truth_row = this.EvaluateProposition(line, subvalues);
+    
+                // this.variables is the values of the raw propositional variables. p,q,r,s
+                // Subvalues is the truth value of the compound propositions
+                // truth_value.push([...this.variables, ...subvalues]);
+            }
+
+            truth_value.push([...this.variables, ...subvalues]);
+            
         } while(this.permuteVars());
 
         console.log("All names: " + this.allPropositionStrings())
