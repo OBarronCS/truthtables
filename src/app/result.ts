@@ -27,5 +27,7 @@ export function ErrorResult<E>(err: E): IErrorResult<E> {
     } 
 }
 
-
+export function AssertUnreachable(impossibleCase: never): never {
+    throw new Error(`ERROR: ${impossibleCase} somehow got through at run time!`);
+}
 

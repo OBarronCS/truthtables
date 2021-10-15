@@ -1,4 +1,4 @@
-import { CheckedResult, ErrorResult, IErrorResult, ValidResult } from "./result";
+import { AssertUnreachable, CheckedResult, ErrorResult, IErrorResult, ValidResult } from "./result";
 
 const editor = document.getElementById("editor") as HTMLTextAreaElement;
 
@@ -14,6 +14,8 @@ enum TokenType {
     NOT,
     CONDITIONAL,
     BICONDITIONAL,
+    TRUE_LITERAL,
+    FALSE_LITERAL,
     START_PAREN,
     END_PAREN,
     END_OF_FILE,
@@ -88,15 +90,29 @@ editor.addEventListener("keyup",e => {
             const html_t = document.getElementById("truth") as HTMLTableElement;
             html_t.innerHTML = ""
 
+            // Headers
             const thr = document.createElement('tr');
             for (let i = 0; i < truth_table.variables.length; i++) {
                 // console.log("Var " + i)
                 const header = document.createElement('th');
                 header.style.border = "1px solid black"
+                header.onmouseenter = e => {
+                    header.style.backgroundColor = "#cef58c"
+                }
+
+                header.onmouseleave = e => {
+                    header.style.backgroundColor = "#FFFFFF"
+                }
+
+                header.onclick = e => {
+   
+                }
+                
                 header.textContent = truth_table.variables[i];
                 // header.appendChild(document.createTextNode()
                 thr.appendChild(header);
             }
+
 
             html_t.appendChild(thr);
 
@@ -266,7 +282,13 @@ class Scanner {
                             this.addToken(TokenType.VARIABLE, char);
                             break;
                         } else {
-                            if(str == "OR"){
+                            if(str === "T") {
+                                this.addToken(TokenType.TRUE_LITERAL);
+                                break;
+                            } else if(str === "F"){
+                                this.addToken(TokenType.FALSE_LITERAL);
+                                break;
+                            } else if(str == "OR"){
                                 this.addToken(TokenType.OR);
                             } else if (str === "AND") {
                                 this.addToken(TokenType.AND);
@@ -308,10 +330,17 @@ class Scanner {
 }
 
 
-type ExprType = "variable" | "negation" | "comparison" | "group";
+type ExprType = "variable" | "negation" | "comparison" | "group" | "boolean";
+
+// NEED ASSERT UNREACHABLE HERE
 
 interface Expression {
     type: ExprType
+}
+
+interface BooleanLiteralExpr extends Expression {
+    type: "boolean"
+    bool: boolean
 }
 
 interface VariableExpr extends Expression {
@@ -338,7 +367,7 @@ interface GroupExpr extends Expression {
     expr: ExpressionType
 }
 
-type ExpressionType = VariableExpr | NegationExpr | ComparisonExpr | GroupExpr;
+type ExpressionType = VariableExpr | NegationExpr | ComparisonExpr | GroupExpr | BooleanLiteralExpr;
 
 
 class ParseError extends Error {
@@ -422,6 +451,12 @@ class TokenParser {
 
     parse(): CheckedResult<ProgramInfo, string[]> {
         const propositions: ExpressionType[] = [];
+
+        while(this.ifNextIs(TokenType.NEW_LINE)){}
+
+        if(this.ifNextIs(TokenType.END_OF_FILE)){
+            return ValidResult(new ProgramInfo([], []));
+        }
 
         while(this.hasMore()){
             try {
@@ -577,6 +612,20 @@ class TokenParser {
             return {
                 type:"negation",
                 toNegate:toNegate
+            }
+        }
+
+        if(this.ifNextIs(TokenType.TRUE_LITERAL)){
+            return {
+                type:"boolean",
+                bool: true
+            }
+        }
+
+        if(this.ifNextIs(TokenType.FALSE_LITERAL)){
+            return {
+                type:"boolean",
+                bool: false
             }
         }
 
@@ -736,6 +785,12 @@ class ProgramInfo {
                 const val = this.varValue(expr.uniqueID);
                 return val;
             }
+            case "boolean": {
+                const value = expr.bool;
+
+                return value;
+            }
+            default: AssertUnreachable(expr)
         }
     }
 
@@ -840,6 +895,10 @@ class ProgramInfo {
             case "variable": {
                 return expr.name;
             }
+            case "boolean": {
+                return expr.bool ? "T" : "F"
+            }
+            default: AssertUnreachable(expr)
         }
     }
 
