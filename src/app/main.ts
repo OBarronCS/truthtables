@@ -31,13 +31,20 @@ class Token {
 }
 
 
-
+let lastText = "";
 
 editor.addEventListener("keyup",e => {
     // Two steps: first turn into a format we can understand, then evaluate it
-    console.log("********************");
+
     const text = editor.value;
     
+    // If nothing change, don't recompute
+    if(text === lastText) return;
+
+    lastText = text;
+    
+    console.log("********************");
+
     // console.log([...text].map(e => e.charCodeAt(0)))
 
     const scanner = new Scanner(text);
@@ -179,6 +186,23 @@ class Scanner {
         return this.text[this.current++];
     }
 
+
+    private suggestCorrection(input: string): string {
+        if(input.toUpperCase() === "AND"){
+            return "AND";
+        }
+        
+        if(input.toUpperCase() === "OR"){
+            return "OR"
+        }
+
+        if(input.toUpperCase() === "RO"){
+            return "OR"
+        }
+
+        return "";
+    }
+
    
 
     parseAllTokens(): CheckedResult<Token[],string[]> {
@@ -247,7 +271,11 @@ class Scanner {
                             } else if (str === "AND") {
                                 this.addToken(TokenType.AND);
                             } else {
-                                this.addError("Unknown identifier '" + str + "'");
+                                const correction = this.suggestCorrection(str)
+
+                                const err_str = correction === "" ? "Unknown identifier '" + str + "'" : "Unknown identifier '" + str + "'. Did you mean '" + correction + "'?"
+
+                                this.addError(err_str);
                             }
                         } 
 
@@ -821,9 +849,6 @@ class ProgramInfo {
         // Tuple of values for each unique set of proposition values. 1 value is value of final expression. Other is of the individual expressions
         truth_value: boolean[][];
     }{
-
-        console.log("Number of variables:" + this.variables.length);
-
         // []
         const truth_value: boolean[][] = [];
 
