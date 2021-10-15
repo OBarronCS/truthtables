@@ -1,6 +1,6 @@
-import { Scanner, TokenType } from "./lexer";
-import { TokenParser, ExpressionType } from "./parser";
-import { AssertUnreachable, CheckedResult, ErrorResult, IErrorResult, ValidResult } from "./result";
+import { Scanner } from "./lexer";
+import { ExpressionType, TokenParser } from "./parser";
+import { AssertUnreachable } from "./result";
 
 const editor = document.getElementById("editor") as HTMLTextAreaElement;
 
@@ -65,7 +65,7 @@ editor.addEventListener("keyup",e => {
 
             // Display the truth table
             const html_t = document.getElementById("truth") as HTMLTableElement;
-            html_t.innerHTML = ""
+            html_t.innerHTML = "";
 
             // Headers
             const thr = document.createElement('tr');
@@ -108,6 +108,101 @@ editor.addEventListener("keyup",e => {
 
                 html_t.appendChild(thr);
             }
+
+           
+
+            // // Drawing the syntax tree
+
+            // const draw_tree = (function(){
+
+            //     let i = 0;
+            //     function traverse(expr: ExpressionType, depth: number){
+
+            //         switch(expr.type){
+            //             case "comparison": {
+                            
+            //                 const subnodes: (ExpressionType & { x: number, y: number})[] = [];
+
+            //                 for(let i = 0; i < Math.floor(expr.toCompare.length / 2); i++){
+            //                     subnodes.push(traverse(expr.toCompare[i], depth + 1));
+            //                 }
+
+            //                 const x = i++;
+
+            //                 for(let i = Math.floor(expr.toCompare.length / 2); i < expr.toCompare.length; i++){
+            //                     subnodes.push(traverse(expr.toCompare[i], depth + 1));
+            //                 }
+
+
+            //                 return {...expr, toCompare: subnodes, x, y: depth}
+            //             }
+            //             case "boolean": {
+            //                 return {...expr, x: i++, y: depth}
+            //             }
+            //             case "group": {
+            //                 return {...expr, x: i++, y: depth}
+            //             }
+            //             case "negation": {
+            //                 return {...expr, x: i++, y: depth}
+            //             }
+            //             case "variable": {
+            //                 return {...expr, x: i++, y: depth}
+            //             }
+            //             default: AssertUnreachable(expr);
+            //         }                    
+            //     }
+                
+            //     return traverse(program.trees[0],0);
+            // })()
+
+            // // Drawing the search tree
+            // const c = document.getElementById("canvas") as HTMLCanvasElement;
+            // const ctx = c.getContext("2d");
+            // console.log("clearing");
+
+            // ctx.clearRect(0, 0, c.width, c.height);
+
+            // // ctx.rect(10,10,10,10);
+            // // ctx.moveTo(0,0);
+            // // ctx.lineTo(200,1000);
+            // // ctx.stroke();
+
+            // function draw(expr: typeof draw_tree){
+
+            //     const x = expr.x * 20;
+            //     const y = (expr.y + 1) * 20;
+
+            //     switch(expr.type){
+            //         case "comparison": {
+            //             ctx.fillText(`(${program["traverseTreeForNames"](expr,[])})`, x,y);
+            //             //@ts-expect-error
+            //             for(const edge of expr.toCompare) draw(edge);
+            //             break;
+                        
+            //         }
+            //         case "boolean": {
+            //             ctx.fillText("boolean", x,y);
+            //             break;
+            //         }
+            //         case "group": {
+            //             ctx.fillText(`(${program["traverseTreeForNames"](expr.expr,[])})`, x,y);
+            //             break;
+            //         }
+            //         case "negation": {
+            //             ctx.fillText("!", x,y);
+            //             break;
+            //         }
+            //         case "variable": {
+            //             ctx.fillText(`${expr.name}`, x,y);
+            //             break;
+            //         }
+            //         default: AssertUnreachable(expr);
+            //     }
+                
+            // }
+
+            // draw(draw_tree);
+            
 
             break;
         }

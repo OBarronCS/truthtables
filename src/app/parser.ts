@@ -121,13 +121,13 @@ export class TokenParser {
         return v;
     }
 
-    parse(): CheckedResult<ProgramInfo, string[]> {
+    parse(): CheckedResult<Program, string[]> {
         const propositions: ExpressionType[] = [];
 
         while(this.ifNextIs(TokenType.NEW_LINE)){}
 
         if(this.ifNextIs(TokenType.END_OF_FILE)){
-            return ValidResult(new ProgramInfo([], []));
+            return ValidResult(new Program([], []));
         }
 
         while(this.hasMore()){
@@ -150,7 +150,7 @@ export class TokenParser {
         }
 
         if(!this.hasError){
-            const p = new ProgramInfo(propositions,this.idToString);
+            const p = new Program(propositions,this.idToString);
             return ValidResult(p);
         } else {
             return ErrorResult(this.errors.map(e => e.message));
@@ -340,12 +340,12 @@ export class TokenParser {
 }
 
 
-
-export class ProgramInfo {
-    trees: ExpressionType[];
+// Executes the program
+export class Program {
+    readonly trees: ExpressionType[];
     
     // Index is id, element is current value
-    variables: boolean[] = [];
+    readonly variables: boolean[] = [];
 
     // Index is id, element is string repr
     private idToString: string[] = [];
