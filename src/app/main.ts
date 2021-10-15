@@ -30,8 +30,9 @@ editor.addEventListener("keyup",e => {
 
     const result = scanner.parseAllTokens();
 
-    const t = document.getElementById("errors");
+    
 
+    const output_text = document.getElementById("errors");
 
     switch(result.success){
         // Lexer has no errors
@@ -39,7 +40,6 @@ editor.addEventListener("keyup",e => {
             // Array of lists of tokens
             const tokens = result.value;
 
-            t.innerHTML = tokens.map(t => t.toString()).toString()
 
             
 
@@ -110,6 +110,7 @@ editor.addEventListener("keyup",e => {
             }
 
            
+            output_text.innerHTML = tokens.map(t => t.toString()).toString()
 
             // // Drawing the syntax tree
 
@@ -207,7 +208,7 @@ editor.addEventListener("keyup",e => {
             break;
         }
         case false: {
-            t.innerHTML = "Lexer error: " + result.error.map(t => t + "\n").toString()
+            output_text.innerHTML = "Lexer error: " + result.error.map(t => t + "\n").toString()
         }
     }
 

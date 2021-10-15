@@ -3,7 +3,9 @@ body {
     /* overflow: hidden; /* This hides scrollbars which appear for some reason (although they really shouldn't)  */
 }
 
-
+.grid {
+    display: flex;
+}
 
 
 /* html, body {
